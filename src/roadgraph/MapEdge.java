@@ -6,6 +6,10 @@ package roadgraph;
  * MapGraph is a directed graph, so each pair of nodes on a 2-way street
  * will have two edges between them, one in each direction.
  * 
+ * At the moment this class is only used by MapGraph which is in the same package.
+ * So access level for getters and setters are "protected" because we don't want the public to use them.
+ * Only this class, subclasses, and classes within this package can access them.
+ * 
  * @author Eric Leung
  *
  */
@@ -16,43 +20,43 @@ public class MapEdge {
 	private String roadType;	// Kind of road, e.g. "residential"
 	private double length;  	// Length of this road segment, in km
 	
-	public MapNode getStart() {
+	protected MapNode getStart() {
 		return start;
 	}
 	
-	public void setStart(MapNode start) {
+	protected void setStart(MapNode start) {
 		this.start = start;
 	}
 	
-	public MapNode getEnd() {
+	protected MapNode getEnd() {
 		return end;
 	}
 	
-	public void setEnd(MapNode end) {
+	protected void setEnd(MapNode end) {
 		this.end = end;
 	}
 	
-	public String getRoadName() {
+	protected String getRoadName() {
 		return roadName;
 	}
 	
-	public void setRoadName(String roadName) {
+	protected void setRoadName(String roadName) {
 		this.roadName = roadName;
 	}
 	
-	public String getRoadType() {
+	protected String getRoadType() {
 		return roadType;
 	}
 	
-	public void setRoadType(String roadType) {
+	protected void setRoadType(String roadType) {
 		this.roadType = roadType;
 	}
 	
-	public double getLength() {
+	protected double getLength() {
 		return length;
 	}
 	
-	public void setLength(double length) {
+	protected void setLength(double length) {
 		this.length = length;
 	}
 }
