@@ -7,8 +7,13 @@
  */
 package roadgraph;
 
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -25,6 +30,12 @@ import util.GraphLoader;
 public class MapGraph {
 	//TODO: Add your member variables here in WEEK 2
 	
+	// Map of intersections/dead-ends.  
+	// Using Map for efficient lookup by GeographicPoint.
+	private Map<GeographicPoint, MapNode> vertices;
+	
+	// Road segments
+	private List<MapEdge> edges;
 	
 	/** 
 	 * Create a new empty MapGraph 
@@ -32,6 +43,9 @@ public class MapGraph {
 	public MapGraph()
 	{
 		// TODO: Implement in this constructor in WEEK 2
+		// Initialization
+		vertices = new HashMap<GeographicPoint, MapNode>();
+		edges = new ArrayList<MapEdge>();
 	}
 	
 	/**
@@ -41,7 +55,7 @@ public class MapGraph {
 	public int getNumVertices()
 	{
 		//TODO: Implement this method in WEEK 2
-		return 0;
+		return vertices.size();
 	}
 	
 	/**
@@ -51,7 +65,16 @@ public class MapGraph {
 	public Set<GeographicPoint> getVertices()
 	{
 		//TODO: Implement this method in WEEK 2
-		return null;
+		Set<GeographicPoint> geoPoints = new HashSet<GeographicPoint>();
+		
+		// Loop through vertices in this graph and put their GeographicPoints
+		// into the result set geoPoints.
+		for ( GeographicPoint gp : vertices.keySet())
+		{
+			geoPoints.add(gp);
+		}
+		
+		return geoPoints;
 	}
 	
 	/**
@@ -61,7 +84,8 @@ public class MapGraph {
 	public int getNumEdges()
 	{
 		//TODO: Implement this method in WEEK 2
-		return 0;
+		
+		return edges.size();
 	}
 
 	
@@ -76,7 +100,23 @@ public class MapGraph {
 	public boolean addVertex(GeographicPoint location)
 	{
 		// TODO: Implement this method in WEEK 2
-		return false;
+		boolean isSuccess = false;
+		
+		if ( location != null && !vertices.containsKey(location) )
+		{
+			// location is not null and not in the graph yet
+			
+			// Create new node
+			MapNode vertex = new MapNode();
+			vertex.setGeoPoint(location);
+			
+			// Put new node into graph
+			vertices.put(location, vertex);
+			
+			isSuccess = true;
+		}
+		
+		return isSuccess;
 	}
 	
 	/**
@@ -95,10 +135,50 @@ public class MapGraph {
 			String roadType, double length) throws IllegalArgumentException {
 
 		//TODO: Implement this method in WEEK 2
+		if ( from == null || to == null || roadName == null || roadType == null || length < 0 
+			|| !isMember(from) || !isMember(to) )
+		{
+			throw new IllegalArgumentException();
+		}
 		
+		// Get the from and to MapNode objects
+		MapNode start = vertices.get(from);
+		MapNode end = vertices.get(to);
+		
+		// Create new edge
+		MapEdge edge = new MapEdge();
+		edge.setStart(start);
+		edge.setEnd(end);
+		edge.setRoadName(roadName);
+		edge.setRoadType(roadType);
+		edge.setLength(length);
+		
+		// Add this edge to the start node.  Because this is an edge from "start" to "end.
+		start.getEdges().add(edge);
+		
+		// Also add this edge to this graph's edge list to make counting edges a bit easier.
+		edges.add(edge);
 	}
 	
-
+	/**
+	 * Helper method to determine if the provided GeographicPoint 
+	 * has already been added to the graph.
+	 * 
+	 * @param point The target Geographic point.
+	 * @return True if point is in graph.  False otherwise.
+	 */
+	private boolean isMember(GeographicPoint point)
+	{
+		boolean isMember = false;
+		
+		if ( point != null && vertices.containsKey(point) )
+		{
+			isMember = true;
+		}
+		
+		return isMember;
+	}
+	
 	/** Find the path from start to goal using breadth first search
 	 * 
 	 * @param start The starting location
@@ -125,12 +205,104 @@ public class MapGraph {
 	{
 		// TODO: Implement this method in WEEK 2
 		
-		// Hook for visualization.  See writeup.
-		//nodeSearched.accept(next.getLocation());
-
-		return null;
+		// start and goal should be nodes in the graph.  Otherwise there will be no path between them.
+		if ( !isMember(start) || !isMember(goal) )
+		{
+			throw new IllegalArgumentException();
+		}
+		
+		// Start our path search with the provided start point
+		MapNode startNode = vertices.get(start);
+		
+		// Parent map: for reconstructing the path from start to goal later
+		Map<GeographicPoint, GeographicPoint> parentMap = new HashMap<GeographicPoint, GeographicPoint>();
+		
+		// Visited nodes 
+		// Using GeographicPoings because it has equals() and hashCode() implemented to test
+		// membership in the Set.
+		Set<GeographicPoint> visited = new HashSet<GeographicPoint>();
+		
+		// Neighbours to be visited.  Queue(FIFO) is what we want for bfs.
+		Queue<MapNode> toExplore = new LinkedList<MapNode>();
+		
+		toExplore.add(startNode);
+		visited.add(start);
+		
+		boolean found = false;
+		while ( !toExplore.isEmpty() )
+		{
+			// remove head of this queue.
+			MapNode currNode = toExplore.remove();
+			
+			// Hook for visualization.  See writeup.
+			nodeSearched.accept(currNode.getGeoPoint());
+			
+			if ( goal.equals(currNode.getGeoPoint() ) )
+			{
+				found = true;
+				break;
+			}
+			
+			List<MapEdge> currEdges = currNode.getEdges();
+			for (MapEdge edge: currEdges)
+			{
+				// edge.getStart is the currNode, edge.getEnd is the neighbour
+				MapNode neighbour = edge.getEnd();
+				
+				// Explore nodes that we have not visited yet
+				if ( !visited.contains(neighbour.getGeoPoint()) )
+				{
+					toExplore.add(neighbour);
+					visited.add(neighbour.getGeoPoint());
+					
+					// Adding the parent relationship into parentMap.
+					parentMap.put(neighbour.getGeoPoint(), currNode.getGeoPoint());
+				}
+			}
+		}
+		
+		// Initialize resulting path to null
+		List<GeographicPoint> path = null;
+		
+		if ( found )
+		{
+			// Construct the path from start to goal
+			path = constructPath(start, goal, parentMap);
+		}
+		
+		return path;
 	}
 	
+	/**
+	 * Helper method to construct the path from start to goal using the given parentMap.
+	 * 
+	 * This method is currently called by bfs if a path from start to goal is found.
+	 * 
+	 * @param goal The GeographicPoint representing the goal.
+	 * @param parentMap Map containing parent child relationships representing the path from start to goal.
+	 * @return List of GeographicPoint objects representing the path from start to goal.
+	 */
+	private List<GeographicPoint> constructPath(GeographicPoint start, GeographicPoint goal, 
+			Map<GeographicPoint, GeographicPoint> parentMap)
+	{
+		// Construct the path from start to goal
+		LinkedList<GeographicPoint> path = new LinkedList<GeographicPoint>();
+			
+		// Start with goal and work ourway back to the start using parentMap.
+		GeographicPoint currPoint = goal;
+		
+		while ( !currPoint.equals(start) )
+		{
+			path.addFirst(currPoint);
+			
+			// backtrack to its parent
+			currPoint = parentMap.get(currPoint);
+		}
+		// First element is the provided start point
+		path.addFirst(start);
+		
+		return path;
+	}
 
 	/** Find the path from start to goal using Dijkstra's algorithm
 	 * 
@@ -208,6 +380,13 @@ public class MapGraph {
 		System.out.println("DONE.");
 		
 		// You can use this method for testing.  
+		GeographicPoint start = new GeographicPoint(6, 6);
+		GeographicPoint end = new GeographicPoint(0, 0);
+		List<GeographicPoint> result = theMap.bfs(start, end);
+		for (GeographicPoint p: result)
+		{
+			System.out.println(p);
+		}
 		
 		/* Use this code in Week 3 End of Week Quiz
 		MapGraph theMap = new MapGraph();
