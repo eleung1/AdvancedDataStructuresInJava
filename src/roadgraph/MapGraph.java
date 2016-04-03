@@ -421,6 +421,7 @@ public class MapGraph {
 		distanceMap.put(startNode, 0.0);
 		visited.add(startNode);
 		
+		int nodesVisited = 0; // Counter to see how many nodes visited. Not part of the algorithm.
 		boolean found = false;
 		while ( !toExplorePQ.isEmpty() )
 		{
@@ -428,6 +429,7 @@ public class MapGraph {
 			MapNodeDistanceModel currNodeDistModel = toExplorePQ.remove();
 			MapNode currNode = currNodeDistModel.getNode();
 			visited.add(currNode);
+			nodesVisited++;
 			
 			// Hook for visualization.  See writeup.
 			nodeSearched.accept(currNode.getGeoPoint());
@@ -466,7 +468,7 @@ public class MapGraph {
 						// Update parent of this neighbour to currNode
 						parentMap.put(neighbour, currNode);
 						
-						toExplorePQ.add(new MapNodeDistanceModel(neighbour, distFromStartToNeighbour));
+						toExplorePQ.add(new MapNodeDistanceModel(neighbour, estimatedDistanceToGoal));
 					}
 				}
 			}
@@ -481,6 +483,7 @@ public class MapGraph {
 			path = constructPath(startNode, goalNode, parentMap);
 		}
 		
+		System.out.println(algorithm + ". Nodes visited="+nodesVisited);
 		return path;
 	}
 	
@@ -516,11 +519,6 @@ public class MapGraph {
 		List<GeographicPoint> route = theMap.dijkstra(start,end);
 		List<GeographicPoint> route2 = theMap.aStarSearch(start,end);
 
-		for (GeographicPoint p: route)
-		{
-			System.out.println(p);
-		}
-		
 	}
 	
 }
