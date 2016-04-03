@@ -51,5 +51,33 @@ public class MapNode {
 		}
 		return edges;
 	}
-
+	
+	/**
+	 * Determine if two MapNode objects are equals.
+	 * 
+	 * Two instances of MapNode are equal if their GeographicPoint objects are equal.
+	 * 
+	 */
+	@Override
+	public boolean equals(Object obj)
+	{
+		boolean isEqual = false;
+		
+		if ( obj instanceof MapNode)
+		{
+			isEqual = geoPoint.equals(((MapNode) obj).getGeoPoint());
+		}
+		
+		return isEqual;
+	}
+	
+	/**
+	 * GeographicPoints are unique.  Leverage its hasCode() method.
+	 * 
+	 */
+	@Override
+	public int hashCode()
+	{
+		return geoPoint.hashCode();
+	}
 }
