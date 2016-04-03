@@ -330,94 +330,7 @@ public class MapGraph {
 										  GeographicPoint goal, Consumer<GeographicPoint> nodeSearched)
 	{
 		// TODO: Implement this method in WEEK 3
-
-		// start and goal should be nodes in the graph.  Otherwise there will be no path between them.
-		if ( !isMember(start) || !isMember(goal) )
-		{
-			throw new IllegalArgumentException();
-		}
-		
-		// PriorityQueue containing nodes to be explored next
-		PriorityQueue<MapNodeDistanceModel> toExplorePQ = new PriorityQueue<MapNodeDistanceModel>();
-		
-		// Visited nodes
-		Set<MapNode> visited = new HashSet<MapNode>();
-		
-		// Parent map: for reconstructing the path from start to goal later
-		Map<MapNode, MapNode> parentMap = new HashMap<MapNode, MapNode>();
-		
-		// Mappings of MapNodes and their distance from starting point. Used to find cheapest path.
-		Map<MapNode, Double> distanceMap = new HashMap<MapNode, Double>();
-		
-		// Initialize all distances to positive infinity.  O(|V|)
-		for ( MapNode n: vertices.values() )
-		{
-			distanceMap.put(n, Double.POSITIVE_INFINITY);
-		}
-		
-		MapNode startNode = vertices.get(start);
-		MapNode goalNode = vertices.get(goal);
-		
-		// Enqueue startNode in our PQ with distance 0 
-		toExplorePQ.add(new MapNodeDistanceModel(startNode, 0.0));
-		distanceMap.put(startNode, 0.0);
-		visited.add(startNode);
-		
-		boolean found = false;
-		while ( !toExplorePQ.isEmpty() )
-		{
-			// Retrieve and remove the highest priority item in our PQ. O(log|E|)
-			MapNodeDistanceModel currNodeDistModel = toExplorePQ.remove();
-			MapNode currNode = currNodeDistModel.getNode();
-			visited.add(currNode);
-			
-			// Hook for visualization.  See writeup.
-			nodeSearched.accept(currNode.getGeoPoint());
-			
-			if ( goalNode.equals(currNode) )
-			{
-				found = true;
-				break;
-			}
-			
-			// Examine neighbours of currNode
-			for ( MapEdge edge: currNode.getEdges() )
-			{
-				// edge.getStart is the currNode, edge.getEnd is the neighbour
-				MapNode neighbour = edge.getEnd();
-				
-				if ( !visited.contains(neighbour) )
-				{
-					// Calculate the accumulated distance to this neighbour
-					double distFromStartToCurrNode = distanceMap.get(currNode);
-					double distFromStartToNeighbour = distFromStartToCurrNode + edge.getLength();
-					
-					if ( distFromStartToNeighbour < distanceMap.get(neighbour) )
-					{
-						// Accumulated distance from currNode to this neighbour is less
-						// than what we have recorded in distanceMap, update it to reflect
-						// the new shortest distance from start to this neighbour.
-						distanceMap.put(neighbour, distFromStartToNeighbour);
-						
-						// Update parent of this neighbour to currNode
-						parentMap.put(neighbour, currNode);
-						
-						toExplorePQ.add(new MapNodeDistanceModel(neighbour, distFromStartToNeighbour));
-					}
-				}
-			}
-		}
-		
-		// Initialize resulting path to null
-		List<GeographicPoint> path = null;
-		
-		if ( found )
-		{
-			// Construct the path from start to goal
-			path = constructPath(startNode, goalNode, parentMap);
-		}
-		
-		return path;
+		return shortestPathSearch(start, goal, nodeSearched, SearchAlgorithm.DIJKSTRA);
 	}
 
 	/** Find the path from start to goal using A-Star search
@@ -445,14 +358,134 @@ public class MapGraph {
 											 GeographicPoint goal, Consumer<GeographicPoint> nodeSearched)
 	{
 		// TODO: Implement this method in WEEK 3
-		
-		// Hook for visualization.  See writeup.
-		//nodeSearched.accept(next.getLocation());
-		
-		return null;
+		return shortestPathSearch(start, goal, nodeSearched, SearchAlgorithm.ASTAR);
 	}
 
-	
+	/**
+	 * Helper method to perform shortest path search based on the specified search algorithm.
+	 * 
+	 * @param start The starting location
+	 * @param goal The goal location
+	 * @param nodeSearched A hook for visualization.  See assignment instructions for how to use it.
+	 * @param algorithm The search algorithm.  DIJKSTRA / ASTAR.
+	 * @return The list of intersections that form the shortest path from 
+	 *   start to goal (including both start and goal).
+	 */
+	private List<GeographicPoint> shortestPathSearch(GeographicPoint start, 
+			 GeographicPoint goal, Consumer<GeographicPoint> nodeSearched, SearchAlgorithm algorithm)
+	{
+		// start and goal should be nodes in the graph.  Otherwise there will be no path between them.
+		if ( !isMember(start) || !isMember(goal) )
+		{
+			throw new IllegalArgumentException();
+		}
+		
+		// Initialize our heuristic estimate cost mapping from vertex n to goal.
+		// This is the shortest point-to-point distance, used by A* search.
+		Map<MapNode, Double> heuristicDistanceMap = new HashMap<MapNode, Double>();
+		// Mappings of MapNodes and their distance from starting point. Used to find cheapest path.
+		Map<MapNode, Double> distanceMap = new HashMap<MapNode, Double>();
+		
+		// Initialize all distances to positive infinity.  O(|V|)
+		for ( MapNode n: vertices.values() )
+		{
+			distanceMap.put(n, Double.POSITIVE_INFINITY);
+			
+			switch(algorithm)
+			{
+				case DIJKSTRA:
+					// Dijkstra can be seen as a special case of A* where h(n) = 0.
+					heuristicDistanceMap.put(n, 0.0);
+					break;
+				case ASTAR:
+					// For A*, set it as the straight line distance from n to goal.
+					heuristicDistanceMap.put(n, n.getGeoPoint().distance(goal));
+					break;
+			}
+		}
+		
+		// PriorityQueue containing nodes to be explored next
+		PriorityQueue<MapNodeDistanceModel> toExplorePQ = new PriorityQueue<MapNodeDistanceModel>();
+		
+		// Visited nodes
+		Set<MapNode> visited = new HashSet<MapNode>();
+		
+		// Parent map: for reconstructing the path from start to goal later
+		Map<MapNode, MapNode> parentMap = new HashMap<MapNode, MapNode>();
+		
+		MapNode startNode = vertices.get(start);
+		MapNode goalNode = vertices.get(goal);
+		
+		// Enqueue startNode in our PQ with distance 0 
+		toExplorePQ.add(new MapNodeDistanceModel(startNode, 0.0));
+		distanceMap.put(startNode, 0.0);
+		visited.add(startNode);
+		
+		int nodesVisited = 0; // Counter to see how many nodes visited. Not part of the algorithm.
+		boolean found = false;
+		while ( !toExplorePQ.isEmpty() )
+		{
+			// Retrieve and remove the highest priority item in our PQ. O(log|E|)
+			MapNodeDistanceModel currNodeDistModel = toExplorePQ.remove();
+			MapNode currNode = currNodeDistModel.getNode();
+			visited.add(currNode);
+			nodesVisited++;
+			
+			// Hook for visualization.  See writeup.
+			nodeSearched.accept(currNode.getGeoPoint());
+			
+			if ( goalNode.equals(currNode) )
+			{
+				found = true;
+				break;
+			}
+			
+			// Examine neighbours of currNode
+			for ( MapEdge edge: currNode.getEdges() )
+			{
+				// edge.getStart is the currNode, edge.getEnd is the neighbour
+				MapNode neighbour = edge.getEnd();
+				
+				if ( !visited.contains(neighbour) )
+				{
+					// Calculate the accumulated distance to this neighbour by 
+					// following the hops from start to neighbour.
+					double distFromStartToCurrNode = distanceMap.get(currNode);
+					double distFromStartToNeighbour = distFromStartToCurrNode + edge.getLength();
+					
+					// Point-to-point distance from neighbour to goal.
+					double distFromNeighbourToGoal = heuristicDistanceMap.get(neighbour);
+					// Estimated distance in this route is the hops + the heuristic point to point.
+					double estimatedDistanceToGoal = distFromStartToNeighbour + distFromNeighbourToGoal;
+					
+					if ( estimatedDistanceToGoal < (distanceMap.get(neighbour) + distFromNeighbourToGoal) )
+					{
+						// Accumulated distance from currNode to this neighbour is less
+						// than what we have recorded in distanceMap, update it to reflect
+						// the new shortest distance from start to this neighbour.
+						distanceMap.put(neighbour, distFromStartToNeighbour);
+						
+						// Update parent of this neighbour to currNode
+						parentMap.put(neighbour, currNode);
+						
+						toExplorePQ.add(new MapNodeDistanceModel(neighbour, estimatedDistanceToGoal));
+					}
+				}
+			}
+		}
+		
+		// Initialize resulting path to null
+		List<GeographicPoint> path = null;
+		
+		if ( found )
+		{
+			// Construct the path from start to goal
+			path = constructPath(startNode, goalNode, parentMap);
+		}
+		
+		System.out.println(algorithm + ". Nodes visited="+nodesVisited);
+		return path;
+	}
 	
 	public static void main(String[] args)
 	{
@@ -486,11 +519,6 @@ public class MapGraph {
 		List<GeographicPoint> route = theMap.dijkstra(start,end);
 		List<GeographicPoint> route2 = theMap.aStarSearch(start,end);
 
-		for (GeographicPoint p: route)
-		{
-			System.out.println(p);
-		}
-		
 	}
 	
 }
