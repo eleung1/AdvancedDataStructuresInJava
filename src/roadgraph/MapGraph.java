@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -213,20 +214,19 @@ public class MapGraph {
 		
 		// Start our path search with the provided start point
 		MapNode startNode = vertices.get(start);
+		MapNode goalNode = vertices.get(goal);
 		
 		// Parent map: for reconstructing the path from start to goal later
-		Map<GeographicPoint, GeographicPoint> parentMap = new HashMap<GeographicPoint, GeographicPoint>();
+		Map<MapNode, MapNode> parentMap = new HashMap<MapNode, MapNode>();
 		
 		// Visited nodes 
-		// Using GeographicPoings because it has equals() and hashCode() implemented to test
-		// membership in the Set.
-		Set<GeographicPoint> visited = new HashSet<GeographicPoint>();
+		Set<MapNode> visited = new HashSet<MapNode>();
 		
 		// Neighbours to be visited.  Queue(FIFO) is what we want for bfs.
 		Queue<MapNode> toExplore = new LinkedList<MapNode>();
 		
 		toExplore.add(startNode);
-		visited.add(start);
+		visited.add(startNode);
 		
 		boolean found = false;
 		while ( !toExplore.isEmpty() )
@@ -237,7 +237,7 @@ public class MapGraph {
 			// Hook for visualization.  See writeup.
 			nodeSearched.accept(currNode.getGeoPoint());
 			
-			if ( goal.equals(currNode.getGeoPoint() ) )
+			if ( goalNode.equals(currNode) )
 			{
 				found = true;
 				break;
@@ -250,13 +250,13 @@ public class MapGraph {
 				MapNode neighbour = edge.getEnd();
 				
 				// Explore nodes that we have not visited yet
-				if ( !visited.contains(neighbour.getGeoPoint()) )
+				if ( !visited.contains(neighbour) )
 				{
 					toExplore.add(neighbour);
-					visited.add(neighbour.getGeoPoint());
+					visited.add(neighbour);
 					
 					// Adding the parent relationship into parentMap.
-					parentMap.put(neighbour.getGeoPoint(), currNode.getGeoPoint());
+					parentMap.put(neighbour, currNode);
 				}
 			}
 		}
@@ -267,7 +267,7 @@ public class MapGraph {
 		if ( found )
 		{
 			// Construct the path from start to goal
-			path = constructPath(start, goal, parentMap);
+			path = constructPath(startNode, goalNode, parentMap);
 		}
 		
 		return path;
@@ -282,24 +282,24 @@ public class MapGraph {
 	 * @param parentMap Map containing parent child relationships representing the path from start to goal.
 	 * @return List of GeographicPoint objects representing the path from start to goal.
 	 */
-	private List<GeographicPoint> constructPath(GeographicPoint start, GeographicPoint goal, 
-			Map<GeographicPoint, GeographicPoint> parentMap)
+	private List<GeographicPoint> constructPath(MapNode startNode, MapNode goalNode, 
+			Map<MapNode, MapNode> parentMap)
 	{
 		// Construct the path from start to goal
 		LinkedList<GeographicPoint> path = new LinkedList<GeographicPoint>();
 			
-		// Start with goal and work ourway back to the start using parentMap.
-		GeographicPoint currPoint = goal;
+		// Start with goal and work our way back to the start using parentMap.
+		MapNode currNode = goalNode;
 		
-		while ( !currPoint.equals(start) )
+		while ( !currNode.equals(startNode) )
 		{
-			path.addFirst(currPoint);
+			path.addFirst(currNode.getGeoPoint());
 			
 			// backtrack to its parent
-			currPoint = parentMap.get(currPoint);
+			currNode = parentMap.get(currNode);
 		}
 		// First element is the provided start point
-		path.addFirst(start);
+		path.addFirst(startNode.getGeoPoint());
 		
 		return path;
 	}
@@ -331,10 +331,93 @@ public class MapGraph {
 	{
 		// TODO: Implement this method in WEEK 3
 
-		// Hook for visualization.  See writeup.
-		//nodeSearched.accept(next.getLocation());
+		// start and goal should be nodes in the graph.  Otherwise there will be no path between them.
+		if ( !isMember(start) || !isMember(goal) )
+		{
+			throw new IllegalArgumentException();
+		}
 		
-		return null;
+		// PriorityQueue containing nodes to be explored next
+		PriorityQueue<MapNodeDistanceModel> toExplorePQ = new PriorityQueue<MapNodeDistanceModel>();
+		
+		// Visited nodes
+		Set<MapNode> visited = new HashSet<MapNode>();
+		
+		// Parent map: for reconstructing the path from start to goal later
+		Map<MapNode, MapNode> parentMap = new HashMap<MapNode, MapNode>();
+		
+		// Mappings of MapNodes and their distance from starting point. Used to find cheapest path.
+		Map<MapNode, Double> distanceMap = new HashMap<MapNode, Double>();
+		
+		// Initialize all distances to positive infinity.  O(|V|)
+		for ( MapNode n: vertices.values() )
+		{
+			distanceMap.put(n, Double.POSITIVE_INFINITY);
+		}
+		
+		MapNode startNode = vertices.get(start);
+		MapNode goalNode = vertices.get(goal);
+		
+		// Enqueue startNode in our PQ with distance 0 
+		toExplorePQ.add(new MapNodeDistanceModel(startNode, 0.0));
+		distanceMap.put(startNode, 0.0);
+		visited.add(startNode);
+		
+		boolean found = false;
+		while ( !toExplorePQ.isEmpty() )
+		{
+			// Retrieve and remove the highest priority item in our PQ. O(log|E|)
+			MapNodeDistanceModel currNodeDistModel = toExplorePQ.remove();
+			MapNode currNode = currNodeDistModel.getNode();
+			visited.add(currNode);
+			
+			// Hook for visualization.  See writeup.
+			nodeSearched.accept(currNode.getGeoPoint());
+			
+			if ( goalNode.equals(currNode) )
+			{
+				found = true;
+				break;
+			}
+			
+			// Examine neighbours of currNode
+			for ( MapEdge edge: currNode.getEdges() )
+			{
+				// edge.getStart is the currNode, edge.getEnd is the neighbour
+				MapNode neighbour = edge.getEnd();
+				
+				if ( !visited.contains(neighbour) )
+				{
+					// Calculate the accumulated distance to this neighbour
+					double distFromStartToCurrNode = distanceMap.get(currNode);
+					double distFromStartToNeighbour = distFromStartToCurrNode + edge.getLength();
+					
+					if ( distFromStartToNeighbour < distanceMap.get(neighbour) )
+					{
+						// Accumulated distance from currNode to this neighbour is less
+						// than what we have recorded in distanceMap, update it to reflect
+						// the new shortest distance from start to this neighbour.
+						distanceMap.put(neighbour, distFromStartToNeighbour);
+						
+						// Update parent of this neighbour to currNode
+						parentMap.put(neighbour, currNode);
+						
+						toExplorePQ.add(new MapNodeDistanceModel(neighbour, distFromStartToNeighbour));
+					}
+				}
+			}
+		}
+		
+		// Initialize resulting path to null
+		List<GeographicPoint> path = null;
+		
+		if ( found )
+		{
+			// Construct the path from start to goal
+			path = constructPath(startNode, goalNode, parentMap);
+		}
+		
+		return path;
 	}
 
 	/** Find the path from start to goal using A-Star search
@@ -374,21 +457,23 @@ public class MapGraph {
 	public static void main(String[] args)
 	{
 		System.out.print("Making a new map...");
+		/*
 		MapGraph theMap = new MapGraph();
 		System.out.print("DONE. \nLoading the map...");
 		GraphLoader.loadRoadMap("data/testdata/simpletest.map", theMap);
 		System.out.println("DONE.");
 		
 		// You can use this method for testing.  
-		GeographicPoint start = new GeographicPoint(6, 6);
-		GeographicPoint end = new GeographicPoint(0, 0);
+		GeographicPoint start = new GeographicPoint(1, 1);
+		GeographicPoint end = new GeographicPoint(4, 2);
 		List<GeographicPoint> result = theMap.bfs(start, end);
 		for (GeographicPoint p: result)
 		{
 			System.out.println(p);
 		}
+		*/
 		
-		/* Use this code in Week 3 End of Week Quiz
+		/* Use this code in Week 3 End of Week Quiz */
 		MapGraph theMap = new MapGraph();
 		System.out.print("DONE. \nLoading the map...");
 		GraphLoader.loadRoadMap("data/maps/utc.map", theMap);
@@ -401,7 +486,10 @@ public class MapGraph {
 		List<GeographicPoint> route = theMap.dijkstra(start,end);
 		List<GeographicPoint> route2 = theMap.aStarSearch(start,end);
 
-		*/
+		for (GeographicPoint p: route)
+		{
+			System.out.println(p);
+		}
 		
 	}
 	
