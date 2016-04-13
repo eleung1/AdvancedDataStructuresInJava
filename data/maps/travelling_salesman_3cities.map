@@ -1,0 +1,6 @@
+1 1 1 2 "AtoB" residential
+1 2 1 1 "BtoA" residential
+1 2 2 3 "BtoC" residential
+2 3 1 2 "CtoB" residential
+1 1 2 3 "AtoC" residential
+2 3 1 1 "CtoA" residential

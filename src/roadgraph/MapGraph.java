@@ -49,6 +49,11 @@ public class MapGraph {
 		edges = new ArrayList<MapEdge>();
 	}
 	
+	public Map<GeographicPoint, MapNode> getGeoVertexMap()
+	{
+	  return vertices;
+	}
+	
 	/**
 	 * Get the number of vertices (road intersections) in the graph
 	 * @return The number of vertices in the graph.
@@ -66,16 +71,7 @@ public class MapGraph {
 	public Set<GeographicPoint> getVertices()
 	{
 		//TODO: Implement this method in WEEK 2
-		Set<GeographicPoint> geoPoints = new HashSet<GeographicPoint>();
-		
-		// Loop through vertices in this graph and put their GeographicPoints
-		// into the result set geoPoints.
-		for ( GeographicPoint gp : vertices.keySet())
-		{
-			geoPoints.add(gp);
-		}
-		
-		return geoPoints;
+	  return vertices.keySet();
 	}
 	
 	/**
@@ -487,6 +483,8 @@ public class MapGraph {
 		return path;
 	}
 	
+	
+	
 	public static void main(String[] args)
 	{
 		System.out.print("Making a new map...");
@@ -507,6 +505,7 @@ public class MapGraph {
 		*/
 		
 		/* Use this code in Week 3 End of Week Quiz */
+		/*
 		MapGraph theMap = new MapGraph();
 		System.out.print("DONE. \nLoading the map...");
 		GraphLoader.loadRoadMap("data/maps/utc.map", theMap);
@@ -518,7 +517,9 @@ public class MapGraph {
 		
 		List<GeographicPoint> route = theMap.dijkstra(start,end);
 		List<GeographicPoint> route2 = theMap.aStarSearch(start,end);
-
+		*/
+		
 	}
+	
 	
 }
